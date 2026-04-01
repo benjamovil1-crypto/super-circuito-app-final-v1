@@ -37,6 +37,50 @@ jobs:
       - name: Cap add android
         run: npx cap add android
 
+      - name: Configurar Iconos y Permisos (Corrección)
+        run: |
+          RES_PATH="android/app/src/main/res"
+          
+          # 1. Forzar la sustitución de iconos en todas las densidades
+          # Esto asegura que el icono de Android genérico sea reemplazado por los tuyos
+          declare -A SIZES=( ["mdpi"]="mdpi" ["hdpi"]="hdpi" ["xhdpi"]="xhdpi" ["xxhdpi"]="xxhdpi" ["xxxhdpi"]="xxxhdpi" )
+          for i in "${!SIZES[@]}"; do
+            mkdir -p $RES_PATH/mipmap-$i
+            cp ic_launcher_$i.png $RES_PATH/mipmap-$i/ic_launcher.png
+            cp ic_launcher_$i.png $RES_PATH/mipmap-$i/ic_launcher_round.png
+          done
+          
+          # Icono adaptativo para versiones modernas de Android
+          mkdir -p $RES_PATH/mipmap-anydpi-v26
+          cp ic_launcher_foreground.png $RES_PATH/mipmap-anydpi-v26/ic_launcher_foreground.png
+
+          # 2. Inyectar permisos de Calendario en el AndroidManifest.xml
+          # Sin esto, Android bloquea cualquier intento de sincronización por seguridad
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.READ_CALENDAR" />\n    <uses-permission android:name="android.permission.WRITE_CALENDAR" />' $MANIFEST
+
+      - name: Cap sync
+        run: npx cap sync android
+
+      - name: Build Android Release
+        run: |
+          cd android
+          ./gradlew assembleRelease
+
+      - name: Sign APK
+        run: |
+          keytool -genkey -v -keystore /tmp/circuito.keystore -alias circuito -keyalg RSA -keysize 2048 -validity 10000 -storepass circuito123 -keypass circuito123 -dname "CN=Super CircuitoApp, OU=App, O=CircuitoApp, L=Mexico, ST=Mexico, C=MX" 2>/dev/null || true
+          APK_IN="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          APK_SIGNED="android/app/build/outputs/apk/release/SuperCircuitoApp-Final.apk"
+          ${ANDROID_SDK_ROOT}/build-tools/$(ls ${ANDROID_SDK_ROOT}/build-tools/ | tail -1)/apksigner sign --ks /tmp/circuito.keystore --ks-key-alias circuito --ks-pass pass:circuito123 --key-pass pass:circuito123 --out "$APK_SIGNED" "$APK_IN"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SuperCircuitoApp-Build
+          path: android/app/build/outputs/apk/release/SuperCircuitoApp-Final.apk      - name: Cap add android
+        run: npx cap add android
+
       - name: Configurar Iconos
         run: |
           RES_PATH="android/app/src/main/res"
