@@ -1,0 +1,70 @@
+name: Build APK — Super CircuitoApp
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: npm install
+        run: |
+          npm install @capacitor/cli @capacitor/core @capacitor/android
+          npm install
+
+      - name: Preparar www/
+        run: |
+          mkdir -p www
+          cp index.html www/index.html
+
+      - name: Cap add android
+        run: npx cap add android
+
+      - name: Configurar Iconos
+        run: |
+          RES_PATH="android/app/src/main/res"
+          cp ic_launcher_mdpi.png $RES_PATH/mipmap-mdpi/ic_launcher.png
+          cp ic_launcher_hdpi.png $RES_PATH/mipmap-hdpi/ic_launcher.png
+          cp ic_launcher_xhdpi.png $RES_PATH/mipmap-xhdpi/ic_launcher.png
+          cp ic_launcher_xxhdpi.png $RES_PATH/mipmap-xxhdpi/ic_launcher.png
+          cp ic_launcher_xxxhdpi.png $RES_PATH/mipmap-xxxhdpi/ic_launcher.png
+          # Icono adaptativo (primer plano)
+          cp ic_launcher_foreground.png $RES_PATH/mipmap-anydpi-v26/ic_launcher_foreground.png
+
+      - name: Cap sync
+        run: npx cap sync android
+
+      - name: Build Android Release
+        run: |
+          cd android
+          ./gradlew assembleRelease
+
+      - name: Sign APK
+        run: |
+          keytool -genkey -v -keystore /tmp/circuito.keystore -alias circuito -keyalg RSA -keysize 2048 -validity 10000 -storepass circuito123 -keypass circuito123 -dname "CN=Super CircuitoApp, OU=App, O=CircuitoApp, L=Mexico, ST=Mexico, C=MX" 2>/dev/null || true
+          APK_IN="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          APK_SIGNED="android/app/build/outputs/apk/release/SuperCircuitoApp-v1.0.0.apk"
+          ${ANDROID_SDK_ROOT}/build-tools/$(ls ${ANDROID_SDK_ROOT}/build-tools/ | tail -1)/apksigner sign --ks /tmp/circuito.keystore --ks-key-alias circuito --ks-pass pass:circuito123 --key-pass pass:circuito123 --out "$APK_SIGNED" "$APK_IN"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SuperCircuitoApp-v1.0.0
+          path: android/app/build/outputs/apk/release/SuperCircuitoApp-v1.0.0.apk
