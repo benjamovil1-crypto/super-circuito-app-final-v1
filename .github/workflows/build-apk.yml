@@ -37,6 +37,42 @@ jobs:
       - name: Cap add android
         run: npx cap add android
 
+      - name: Configurar Iconos y Permisos
+        run: |
+          RES_PATH="android/app/src/main/res"
+          # Mover iconos a todas las densidades posibles
+          for size in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            cp ic_launcher_$size.png $RES_PATH/mipmap-$size/ic_launcher.png
+            cp ic_launcher_$size.png $RES_PATH/mipmap-$size/ic_launcher_round.png
+          done
+          cp ic_launcher_foreground.png $RES_PATH/mipmap-anydpi-v26/ic_launcher_foreground.png
+          
+          # Inyectar permisos de Calendario en el Manifest
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.READ_CALENDAR" />\n    <uses-permission android:name="android.permission.WRITE_CALENDAR" />' $MANIFEST
+
+      - name: Cap sync
+        run: npx cap sync android
+
+      - name: Build Android Release
+        run: |
+          cd android
+          ./gradlew assembleRelease
+
+      - name: Sign APK
+        run: |
+          keytool -genkey -v -keystore /tmp/circuito.keystore -alias circuito -keyalg RSA -keysize 2048 -validity 10000 -storepass circuito123 -keypass circuito123 -dname "CN=Super CircuitoApp, OU=App, O=CircuitoApp, L=Mexico, ST=Mexico, C=MX" 2>/dev/null || true
+          APK_IN="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          APK_SIGNED="android/app/build/outputs/apk/release/SuperCircuitoApp-v1.1.0.apk"
+          ${ANDROID_SDK_ROOT}/build-tools/$(ls ${ANDROID_SDK_ROOT}/build-tools/ | tail -1)/apksigner sign --ks /tmp/circuito.keystore --ks-key-alias circuito --ks-pass pass:circuito123 --key-pass pass:circuito123 --out "$APK_SIGNED" "$APK_IN"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SuperCircuitoApp-v1.1.0
+          path: android/app/build/outputs/apk/release/SuperCircuitoApp-v1.1.0.apk      - name: Cap add android
+        run: npx cap add android
+
       - name: Configurar Iconos y Permisos (Corrección)
         run: |
           RES_PATH="android/app/src/main/res"
