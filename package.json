@@ -1,6 +1,8 @@
 {
   "name": "super-circuito-app",
   "version": "1.0.0",
+  "description": "Asistente para Superintendentes",
+  "main": "index.html",
   "scripts": {
     "build": "mkdir -p www && cp index.html www/index.html"
   },
