@@ -1,1 +1,6 @@
-
+{
+  "appId": "com.supercircuito.app",
+  "appName": "Super CircuitoApp",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
