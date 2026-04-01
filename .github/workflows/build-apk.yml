@@ -37,6 +37,44 @@ jobs:
       - name: Cap add android
         run: npx cap add android
 
+      - name: Configurar Iconos y Permisos
+        run: |
+          RES_PATH="android/app/src/main/res"
+          
+          # Buscamos los archivos aunque tengan caracteres extra en el nombre
+          cp ic_launcher_mdpi*.png $RES_PATH/mipmap-mdpi/ic_launcher.png || true
+          cp ic_launcher_hdpi*.png $RES_PATH/mipmap-hdpi/ic_launcher.png || true
+          cp ic_launcher_xhdpi*.png $RES_PATH/mipmap-xhdpi/ic_launcher.png || true
+          cp ic_launcher_xxhdpi*.png $RES_PATH/mipmap-xxhdpi/ic_launcher.png || true
+          cp ic_launcher_xxxhdpi*.png $RES_PATH/mipmap-xxxhdpi/ic_launcher.png || true
+          cp ic_launcher_foreground*.png $RES_PATH/mipmap-anydpi-v26/ic_launcher_foreground.png || true
+
+          # Inyectar permisos de Calendario
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.READ_CALENDAR" />\n    <uses-permission android:name="android.permission.WRITE_CALENDAR" />' $MANIFEST
+
+      - name: Cap sync
+        run: npx cap sync android
+
+      - name: Build Android Release
+        run: |
+          cd android
+          ./gradlew assembleRelease
+
+      - name: Sign APK
+        run: |
+          keytool -genkey -v -keystore /tmp/circuito.keystore -alias circuito -keyalg RSA -keysize 2048 -validity 10000 -storepass circuito123 -keypass circuito123 -dname "CN=Super CircuitoApp, OU=App, O=CircuitoApp, L=Mexico, ST=Mexico, C=MX" 2>/dev/null || true
+          APK_IN=$(find android/app/build/outputs/apk/release/ -name "*-unsigned.apk" | head -n 1)
+          APK_SIGNED="android/app/build/outputs/apk/release/SuperCircuitoApp-V2.apk"
+          ${ANDROID_SDK_ROOT}/build-tools/$(ls ${ANDROID_SDK_ROOT}/build-tools/ | tail -1)/apksigner sign --ks /tmp/circuito.keystore --ks-key-alias circuito --ks-pass pass:circuito123 --key-pass pass:circuito123 --out "$APK_SIGNED" "$APK_IN"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SuperCircuitoApp-V2
+          path: android/app/build/outputs/apk/release/SuperCircuitoApp-V2.apk      - name: Cap add android
+        run: npx cap add android
+
       - name: Configurar Iconos y Permisos (Corrección)
         run: |
           RES_PATH="android/app/src/main/res"
