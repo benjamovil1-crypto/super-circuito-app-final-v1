@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -24,17 +24,48 @@ jobs:
         with:
           node-version: '20'
 
-      - name: npm install
+      - name: Instalación de dependencias
         run: |
           npm install @capacitor/cli @capacitor/core @capacitor/android
           npm install
 
-      - name: Preparar www/
+      - name: Construir Proyecto Web
         run: |
           mkdir -p www
           cp index.html www/index.html
 
-      - name: Cap add android
+      - name: Añadir Plataforma Android
+        run: npx cap add android
+
+      - name: Configurar Iconos y Permisos
+        run: |
+          RES_PATH="android/app/src/main/res"
+          # Copiar iconos usando comodines para evitar errores por nombres largos
+          cp ic_launcher_mdpi*.png $RES_PATH/mipmap-mdpi/ic_launcher.png || true
+          cp ic_launcher_hdpi*.png $RES_PATH/mipmap-hdpi/ic_launcher.png || true
+          cp ic_launcher_xhdpi*.png $RES_PATH/mipmap-xhdpi/ic_launcher.png || true
+          cp ic_launcher_xxhdpi*.png $RES_PATH/mipmap-xxhdpi/ic_launcher.png || true
+          cp ic_launcher_xxxhdpi*.png $RES_PATH/mipmap-xxxhdpi/ic_launcher.png || true
+          cp ic_launcher_foreground*.png $RES_PATH/mipmap-anydpi-v26/ic_launcher_foreground.png || true
+          
+          # Permisos de Calendario
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.READ_CALENDAR" />\n    <uses-permission android:name="android.permission.WRITE_CALENDAR" />' $MANIFEST
+
+      - name: Sincronizar Capacitor
+        run: npx cap sync android
+
+      - name: Compilar APK (Debug)
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Subir APK Resultante
+        uses: actions/upload-artifact@v4
+        with:
+          name: SuperCircuitoApp-Instalable
+          path: android/app/build/outputs/apk/debug/app-debug.apk      - name: Cap add android
         run: npx cap add android
 
       - name: Configurar Iconos y Permisos
